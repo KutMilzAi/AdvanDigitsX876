@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KUT DIGITS AI - OMEGA TERMINAL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #060914;
+            --card-bg: #0f172a;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --error: #f43f5e;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #1e293b;
+            --gemini: #8b5cf6;
+            --gps: #06b6d4;
+            --omega: #f472b6;
+        }
+
+        * { box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+        body { margin: 0; background: var(--bg); color: var(--text-main); font-size: 13px; }
+
+        header {
+            padding: 0.75rem 1.25rem;
+            background: #0f172a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .balance-display {
+            background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 14px; border-radius: 8px; text-align: right;
+        }
+        .balance-amt { color: var(--success); font-weight: 800; font-size: 1.1rem; }
+        .balance-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; display: block; }
+
+        .layout {
+            display: grid; grid-template-columns: 1fr 400px; gap: 15px;
+            padding: 15px; max-width: 1400px; margin: 0 auto;
+        }
+
+        @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; position: relative; overflow: hidden; }
+        h3 { margin: 0 0 1rem 0; font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+        .help-trigger {
+            width: 18px; height: 18px; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            border-radius: 50%; color: var(--text-dim); font-size: 0.6rem; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .help-trigger:hover { background: var(--accent); color: white; border-color: white; }
+
+        .freq-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+        .freq-card { 
+            background: #060914; border: 1px solid var(--border); border-radius: 8px; 
+            padding: 10px 5px; text-align: center; transition: 0.2s; cursor: pointer;
+            position: relative; box-shadow: inset 0 0 0 2px transparent;
+        }
+        .freq-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .freq-card.last-tick { box-shadow: inset 0 0 0 2px var(--accent); border-color: var(--accent); }
+        .freq-card.winning-digit { box-shadow: inset 0 0 0 2px var(--success); border-color: var(--success); }
+        .freq-card.ai-suggested { border-color: var(--warning); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+        
+        .freq-digit { font-size: 1.1rem; font-weight: 900; display: block; }
+        .freq-pct { font-size: 0.65rem; color: var(--text-dim); }
+
+        .input-group { margin-bottom: 1.25rem; }
+        label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; }
+        input, select {
+            width: 100%; height: 42px; background: #060914; border: 1px solid var(--border);
+            color: white; border-radius: 8px; padding: 0 12px; font-size: 0.95rem; outline: none;
+        }
+
+        .barrier-selector { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px; }
+        .barrier-btn {
+            background: #1e293b; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: 700;
+        }
+        .barrier-btn.active { background: var(--accent); border-color: white; transform: scale(1.05); }
+
+        .btn {
+            height: 55px; border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .btn-over { background: var(--success); flex: 1; }
+        .btn-under { background: var(--error); flex: 1; }
+        .btn-over:disabled, .btn-under:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+        .btn-ai { background: linear-gradient(135deg, #6366f1, #a855f7); width: 100%; margin-top: 10px; height: 38px; font-size: 0.8rem; }
+        
+        .trade-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85);
+            z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background: var(--card-bg); border: 1px solid var(--accent); border-radius: 16px;
+            max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 30px; position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+        .close-modal { position: absolute; top: 20px; right: 20px; cursor: pointer; color: var(--text-dim); font-size: 1.5rem; }
+
+        .meter-container { background: #1e293b; height: 8px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+        .meter-fill { height: 100%; transition: width 0.5s ease; width: 0%; }
+
+        .vitals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .vital-box { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+        .vital-val { font-size: 1.2rem; font-weight: 800; display: block; }
+        .vital-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; margin-top: 4px; display: block; }
+
+        .cooldown-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(6, 9, 20, 0.9); display: none; align-items: center; justify-content: center;
+            z-index: 50; flex-direction: column; text-align: center;
+        }
+
+        .log-box, .transaction-log {
+            height: 180px; overflow-y: auto; background: #060914; border-radius: 8px;
+            padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; margin-top: 10px; border: 1px solid var(--border);
+        }
+
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #475569; }
+        .intelligence-tag { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; }
+        
+        .active-omega { animation: pulse-omega 2s infinite; border-color: var(--omega); }
+        @keyframes pulse-omega {
+            0% { box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(244, 114, 182, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 114, 182, 0); }
+        }
+
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .connected #connect { background: var(--error); }
+        .connected #token { pointer-events: none; opacity: 0.5; }
+        
+        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 3px; margin-left: 5px; vertical-align: middle; }
+        .badge-ai { background: var(--gemini); color: white; }
+
+        .ai-insight-box {
+            background: rgba(139, 92, 246, 0.05);
+            border-left: 3px solid var(--gemini);
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body id="mainBody">
+
+<div class="modal" id="systemModal">
+    <div class="modal-content">
+        <span class="close-modal" id="closeModal">&times;</span>
+        <div class="modal-header" id="modalTitle" style="font-size: 1.2rem; font-weight: 800; color: var(--accent); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">System Message</div>
+        <div class="modal-body" id="modalBody" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-dim);"></div>
+    </div>
+</div>
+
+<header>
+    <div class="header-left">
+        <span style="font-weight: 900; letter-spacing: 1.5px; color: #fff;">KUT DIGITS <span style="color:var(--accent)">AI</span></span>
+        <div id="connectionStatus" style="font-size: 0.65rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 20px;">
+            <span id="dot" class="status-dot"></span>
+            <span id="statusTxt">OFFLINE</span>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="balance-display" id="balanceContainer" style="display:none;">
+            <span class="balance-label">WALLET</span>
+            <span class="balance-amt" id="walletBalance">0.00</span> <span style="font-size: 0.7rem; color: var(--text-dim);">USD</span>
+        </div>
+    </div>
+</header>
+
+<div class="layout">
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        
+        <div class="card" id="omega-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h3>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="intelligence-tag" style="background:var(--omega); color:white;">Core</span> OMEGA NEURAL TRADER
+                        <span class="help-trigger" onclick="showHelp('omega')">?</span>
+                    </div>
+                </h3>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="omegaToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="omega-status-box" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed var(--border);">
+                <div id="omega-progress-label" style="font-size: 0.75rem; margin-bottom: 8px; color: var(--text-dim);">Initialization: 0 / 50 Ticks</div>
+                <div class="meter-container">
+                    <div id="omega-progress-bar" class="meter-fill" style="background: var(--omega);"></div>
+                </div>
+                <div id="omega-output" style="margin-top: 12px; font-size: 0.85rem; color: var(--omega); font-weight: 600;">System Standby...</div>
+                <div id="omega-trades-left" style="font-size: 0.65rem; margin-top: 5px; color: var(--text-dim);">Trade Limit: 0 / 2</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="card">
+                <h3>✨ VIP X Scanner <span class="badge badge-ai" id="active-ai-mode-label">Neural</span></h3>
+                <div id="ai-text" style="font-size: 0.85rem; line-height: 1.4; color: #cbd5e1; min-height: 80px;">
+                    Waiting for tick synchronization...
+                </div>
+                <button class="btn btn-ai" id="aiBtn">Force VIP Scan</button>
+            </div>
+
+            <div class="card">
+                <h3>🎯 Barrier Analytics <span class="badge badge-ai">Precision</span></h3>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+                    <div>
+                        <div style="font-size: 0.6rem; color: var(--text-dim);">OPTIMIZED BARRIER</div>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span id="target-barrier-display" style="font-size: 1.8rem; font-weight: 900; color: white;">0</span>
+                            <span id="target-barrier-prediction" style="font-size: 0.75rem; font-weight: 800; color: var(--success);">OVER</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.6rem; color: var(--text-dim);">STABILITY CONF.</div>
+                        <div id="barrier-conf-val" style="font-size: 1.2rem; font-weight: 800; color: var(--warning);">0%</div>
+                    </div>
+                </div>
+                <div class="meter-container">
+                    <div id="barrier-conf-fill" class="meter-fill" style="background: var(--warning);"></div>
+                </div>
+                <div class="ai-insight-box">
+                    <div style="font-size: 0.6rem; color: var(--gemini); font-weight: 800; margin-bottom: 3px; text-transform: uppercase;">Neural Logic</div>
+                    <div id="barrier-ai-insight" style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">
+                        Awaiting neural handshake...
+                    </div>
+                </div>
+                <div id="alternative-suggest" style="margin-top: 8px; font-size: 0.65rem; color: var(--accent); display:none;">
+                    TIP: Switch to Barrier <span id="suggested-barrier-id">0</span> for 15% better edge.
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📈 Market Intelligence Vitals</h3>
+            <div class="vitals-grid">
+                <div class="vital-box">
+                    <span class="vital-val" id="vital-vol">0.00</span>
+                    <span class="vital-label">Volatility</span>
+                </div>
+                <div class="vital-box">
+                    <span class="vital-val" id="vital-trend">NEUTRAL</span>
+                    <span class="vital-label">Trend Strength</span>
+                </div>
+                <div class="vital-box">
+                    <span class="vital-val" id="vital-rsi">50</span>
+                    <span class="vital-label">Relative Index</span>
+                </div>
+            </div>
+            <label>AI Neural Sentiment</label>
+            <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0;">
+                <div id="bull-fill" style="background: var(--success); width: 50%; transition: 0.5s;"></div>
+                <div id="bear-fill" style="background: var(--error); width: 50%; transition: 0.5s;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-dim);">
+                <span>BULLISH (<span id="bull-pct">50</span>%)</span>
+                <span>BEARISH (<span id="bear-pct">50</span>%)</span>
+            </div>
+        </div>
+
+        <div class="card" id="gps-card">
+            <div class="cooldown-overlay" id="gps-overlay">
+                <span style="color:var(--gps); font-weight:800; font-size:1.1rem;">GPS X SHIELD ACTIVE</span>
+                <span id="cooldown-timer" style="font-size: 2rem; font-weight: 900; color:white;">00s</span>
+            </div>
+            <h3>📡 GPS X Protection Layer</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div id="gps-status" style="color:var(--success); font-weight:700;">STABLE MARKET</div>
+                    <div id="gps-desc" style="font-size:0.7rem; color:var(--text-dim);">Shield at 100% capacity.</div>
+                </div>
+                <div id="gps-conf" style="font-size:1.1rem; font-weight:800; color:var(--gps);">99%</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔢 Digit Heatmap (Global)</h3>
+            <div class="freq-grid" id="freqGrid"></div>
+            <div style="font-size: 0.6rem; color: var(--text-dim); text-align: center; margin-top: 10px; font-style: italic;">
+                Rings: <span style="color:var(--accent)">Blue=Recent</span> | <span style="color:var(--success)">Green=Win Frame</span> | <span style="color:var(--warning)">Gold=AI Suggested</span>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div class="card">
+            <h3>Execution Hub</h3>
+            <div class="input-group">
+                <label>Broker API Token</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="password" id="token" placeholder="Paste Token..." style="flex:1;">
+                    <button class="btn" style="background:var(--accent); width:110px; height:42px; font-size:0.75rem;" id="connect">JOIN</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Barrier Configuration</label>
+                <div class="barrier-selector" id="barrierGrid"></div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="input-group">
+                    <label>Stake ($)</label>
+                    <input type="number" id="stake" value="1.00" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Duration (Ticks)</label>
+                    <input type="number" id="duration" value="1" min="1" max="10">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>AI Strategy Mode</label>
+                <select id="aiMode">
+                    <option value="adaptive" selected>Fully Adaptive (AI Managed)</option>
+                    <option value="balanced">Neural Balanced</option>
+                    <option value="conservative">Conservative</option>
+                    <option value="aggressive">Aggressive</option>
+                </select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 80px; gap: 10px; align-items: end;" class="input-group">
+                <div>
+                    <label>Market Asset</label>
+                    <select id="market">
+                        <option value="R_10">Vol 10 Index</option>
+                        <option value="1HZ10V">Vol 10 (1s)</option>
+                        <option value="R_25">Vol 25 Index</option>
+                        <option value="1HZ25V">Vol 25 (1s)</option>
+                        <option value="R_50">Vol 50 Index</option>
+                        <option value="1HZ50V">Vol 50 (1s)</option>
+                        <option value="R_75">Vol 75 Index</option>
+                        <option value="1HZ75V">Vol 75 (1s)</option>
+                        <option value="R_100">Vol 100 Index</option>
+                        <option value="1HZ100V">Vol 100 (1s)</option>
+                        <option value="1HZ150V">Vol 150 (1s)</option>
+                        <option value="1HZ250V">Vol 250 (1s)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Bulk</label>
+                    <input type="number" id="bulk" value="1" min="1" title="Multi-position count">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <div>
+                    <span style="font-weight: 800; font-size: 0.8rem; color: var(--accent);">AUTO TRADER</span>
+                    <div style="font-size: 0.6rem; color: var(--text-dim);">85% Confidence Trigger</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoTradeToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="trade-actions" id="action-buttons">
+                <button class="btn btn-over" id="buyOver">OVER <span id="labelOver" style="font-size:0.6rem;">> 0</span></button>
+                <button class="btn btn-under" id="buyUnder">UNDER <span id="labelUnder" style="font-size:0.6rem;">< 0</span></button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>History & Activity</h3>
+            <div class="transaction-log" id="transactions"></div>
+            <div class="log-box" id="logs"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const apiKey = ""; 
+const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
+let ws, selectedBarrier = 0, tickData = [], digitCounts = Array(10).fill(0);
+let rawPrices = [];
+let tickCounter = 0;
+let isTradeInProgress = false;
+let isCooldownActive = false;
+let gpsCooldownTimer = 0;
+let isConnected = false;
+let currentMode = "balanced"; 
+let lastRecommendationTime = Date.now();
+let lastBarrierAnalysisTime = 0;
+
+let omegaTradeCount = 0;
+const OMEGA_LIMIT = 2;
+const OMEGA_TICK_REQ = 50;
+
+function showHelp(key) {
+    const data = {
+        omega: { title: "OMEGA Neural Trader", body: "Deep learning layer for high-precision entries. Requires 50 ticks to prime." },
+    }[key];
+    if(!data) return;
+    document.getElementById('modalTitle').innerText = data.title;
+    document.getElementById('modalBody').innerHTML = data.body;
+    document.getElementById('systemModal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('systemModal').style.display = 'none'; }
+document.getElementById('closeModal').onclick = closeModal;
+
+const freqGrid = document.getElementById('freqGrid');
+for(let i=0; i<=9; i++) {
+    const card = document.createElement('div');
+    card.className = 'freq-card'; card.id = `freq-card-${i}`;
+    card.onclick = () => updateSelectedBarrier(i);
+    card.innerHTML = `<span class="freq-digit">${i}</span><span class="freq-pct" id="freq-val-${i}">0%</span>`;
+    freqGrid.appendChild(card);
+}
+
+function updateSelectedBarrier(digit, isAuto = false) {
+    selectedBarrier = digit;
+    document.querySelectorAll('.barrier-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.textContent) === digit);
+    });
+    
+    const overBtn = document.getElementById('buyOver');
+    const underBtn = document.getElementById('buyUnder');
+    
+    overBtn.disabled = digit === 9;
+    underBtn.disabled = digit === 0;
+
+    document.getElementById('labelOver').textContent = digit === 9 ? 'N/A' : `> ${digit}`;
+    document.getElementById('labelUnder').textContent = digit === 0 ? 'N/A' : `< ${digit}`;
+    document.getElementById('target-barrier-display').textContent = digit;
+    
+    addLog(`Barrier ${isAuto ? 'optimized' : 'shifted'} to: ${digit}`, isAuto ? 'success' : 'info');
+    
+    if(isConnected) {
+        runBarrierAI(true); // Force re-analysis
+        runAI(); 
+    }
+}
+
+const barrierGrid = document.getElementById('barrierGrid');
+for(let i=0; i<=9; i++) {
+    const btn = document.createElement('button');
+    btn.className = `barrier-btn ${i===0?'active':''}`;
+    btn.textContent = i;
+    btn.onclick = () => updateSelectedBarrier(i);
+    barrierGrid.appendChild(btn);
+}
+
+updateSelectedBarrier(0);
+
+function addLog(msg, type='info') {
+    const div = document.createElement('div');
+    div.style.marginBottom = '6px';
+    div.style.color = type === 'error' ? 'var(--error)' : (type === 'success' ? 'var(--success)' : 'white');
+    div.innerHTML = `<span style="color:var(--text-dim)">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+    document.getElementById('logs').prepend(div);
+}
+
+function updateVitals() {
+    if(rawPrices.length < 10) return;
+    
+    const slice = rawPrices.slice(-20);
+    const avg = slice.reduce((a,b) => a+b, 0) / slice.length;
+    const variance = slice.reduce((a,b) => a + Math.pow(b - avg, 2), 0) / slice.length;
+    const stdDev = Math.sqrt(variance);
+    document.getElementById('vital-vol').innerText = stdDev.toFixed(4);
+    
+    let rsi = 50;
+    if(slice.length >= 15) {
+        let gains = 0, losses = 0;
+        for(let i = slice.length - 14; i < slice.length; i++) {
+            const diff = slice[i] - slice[i-1];
+            if(diff > 0) gains += diff; else losses -= diff;
+        }
+        const rs = gains / (losses || 1);
+        rsi = 100 - (100 / (1 + rs));
+        document.getElementById('vital-rsi').innerText = Math.round(rsi);
+        
+        const bullPct = Math.round(rsi);
+        const bearPct = 100 - bullPct;
+        document.getElementById('bull-fill').style.width = bullPct + '%';
+        document.getElementById('bear-fill').style.width = bearPct + '%';
+        document.getElementById('bull-pct').innerText = bullPct;
+        document.getElementById('bear-pct').innerText = bearPct;
+    }
+
+    const shortAvg = slice.slice(-5).reduce((a,b) => a+b,0) / 5;
+    const longAvg = slice.reduce((a,b) => a+b,0) / slice.length;
+    const trend = shortAvg > longAvg ? 'BULLISH' : 'BEARISH';
+    const trendEl = document.getElementById('vital-trend');
+    trendEl.innerText = trend;
+    trendEl.style.color = trend === 'BULLISH' ? 'var(--success)' : 'var(--error)';
+
+    const modeSelect = document.getElementById('aiMode');
+    if (modeSelect.value === 'adaptive') {
+        let newMode = "balanced";
+        if (stdDev > 0.08 || rsi > 80 || rsi < 20) {
+            newMode = "conservative";
+        } else if (stdDev < 0.03 && rsi > 40 && rsi < 60) {
+            newMode = "aggressive";
+        }
+        
+        if (newMode !== currentMode) {
+            currentMode = newMode;
+            const labels = { balanced: "Neural", conservative: "Safe", aggressive: "Aggro" };
+            document.getElementById('active-ai-mode-label').innerText = labels[currentMode] + " (Auto)";
+            addLog(`Adaptive Engine: Shifted to ${currentMode.toUpperCase()}`, "info");
+        }
+    } else {
+        currentMode = modeSelect.value;
+    }
+}
+
+function runGPS() {
+    if(rawPrices.length < 20) return;
+    const recent = rawPrices.slice(-10);
+    const movement = Math.abs((recent[9] - recent[8]) / recent[8] * 100);
+    if (movement > 0.05 && !isCooldownActive) {
+        addLog("GPS: High Volatility Detected. Shield Active.", "error");
+        startCooldown(10);
+    }
+}
+
+function startCooldown(seconds) {
+    isCooldownActive = true; gpsCooldownTimer = seconds;
+    const overlay = document.getElementById('gps-overlay');
+    overlay.style.display = 'flex';
+    const interval = setInterval(() => {
+        gpsCooldownTimer--;
+        document.getElementById('cooldown-timer').textContent = gpsCooldownTimer + 's';
+        if (gpsCooldownTimer <= 0) {
+            clearInterval(interval); isCooldownActive = false;
+            overlay.style.display = 'none';
+        }
+    }, 1000);
+}
+
+// 🎯 IMPROVED BARRIER ANALYTICS
+async function runBarrierAI(force = false) {
+    if (!isConnected || isCooldownActive) return;
+    
+    // Throttling to prevent redundant API calls
+    const now = Date.now();
+    if (!force && now - lastBarrierAnalysisTime < 15000) return; 
+    
+    const insight = document.getElementById('barrier-ai-insight');
+    insight.innerHTML = `<span style="color:var(--text-dim)">Analyzing statistical drift...</span>`;
+    
+    const rsi = document.getElementById('vital-rsi').innerText;
+    const vol = document.getElementById('vital-vol').innerText;
+    
+    // Higher precision prompt focusing on the mathematical edge of specific barriers
+    const context = `BARRIER PRECISION SCAN. 
+    Current Barrier: ${selectedBarrier}. 
+    Market Mode: ${currentMode}. 
+    RSI: ${rsi}. Volatility: ${vol}. 
+    Last 20 Digits: ${JSON.stringify(tickData.slice(-20))}. 
+    
+    TASK: Identify the "Safe Zone" digit (0-9) where probability of 'NOT HITTING' is highest. 
+    JSON: {"best_barrier": 0-9, "prediction": "OVER"|"UNDER", "confidence": 0-100, "reasoning": "Explain the neural logic in 12 words", "shift_required": boolean}`;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: context }] }], generationConfig: { responseMimeType: "application/json" } })
+        });
+        const data = await response.json();
+        const res = JSON.parse(data.candidates[0].content.parts[0].text);
+        
+        lastBarrierAnalysisTime = now;
+        
+        // Update UI with the same "VIP" polish
+        document.getElementById('barrier-conf-val').innerText = res.confidence + "%";
+        document.getElementById('barrier-conf-fill').style.width = res.confidence + "%";
+        document.getElementById('target-barrier-prediction').innerText = res.prediction;
+        document.getElementById('target-barrier-prediction').style.color = res.prediction === 'OVER' ? 'var(--success)' : 'var(--error)';
+        
+        insight.innerText = res.reasoning;
+
+        // Visual heatmap cues
+        document.querySelectorAll('.freq-card').forEach(f => f.classList.remove('ai-suggested'));
+        const freqCard = document.getElementById(`freq-card-${res.best_barrier}`);
+        if(freqCard) freqCard.classList.add('ai-suggested');
+
+        // Automatic shift if confidence is very high and it improves the edge
+        if (res.shift_required && res.best_barrier !== selectedBarrier && res.confidence > 80) {
+            addLog(`Neural Barrier Optmizer: Switching to ${res.best_barrier} for higher edge.`, "success");
+            updateSelectedBarrier(res.best_barrier, true);
+        }
+    } catch (e) { insight.innerText = "Waiting for next tick cycle..."; }
+}
+
+async function runAI() {
+    if (Date.now() - lastRecommendationTime > 30000) {
+        lastRecommendationTime = Date.now();
+    }
+
+    if (!isConnected || isCooldownActive || isTradeInProgress) return;
+    const aiText = document.getElementById('ai-text');
+    aiText.innerText = `VIP X [${currentMode.toUpperCase()}]: Scanning...`;
+    
+    const rsi = document.getElementById('vital-rsi').innerText;
+    const trend = document.getElementById('vital-trend').innerText;
+    
+    const context = `VIP SCANNER. Market: ${document.getElementById('market').value}. Focus Barrier: ${selectedBarrier}. Mode: ${currentMode}. RSI: ${rsi}. Trend: ${trend}. Last 15: ${JSON.stringify(tickData.slice(-15))}. JSON: {"recommendation": "OVER"|"UNDER"|"HOLD", "confidence": 0-100, "reason": "string"}.`;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: context }] }], generationConfig: { responseMimeType: "application/json" } })
+        });
+        const data = await response.json();
+        const res = JSON.parse(data.candidates[0].content.parts[0].text);
+        
+        aiText.innerHTML = `<b style="color:var(--gemini)">${res.recommendation}</b> (${res.confidence}%) for Barrier ${selectedBarrier}<br>${res.reason}`;
+        
+        if (res.recommendation !== "HOLD") {
+            lastRecommendationTime = Date.now();
+        }
+
+        if(document.getElementById('autoTradeToggle').checked) {
+            let minConf = 85;
+            if (currentMode === 'aggressive') minConf = 75;
+            if (currentMode === 'conservative') minConf = 92;
+
+            if(res.confidence >= minConf && res.recommendation !== "HOLD") {
+                addLog(`Auto-Trade Trigger: ${res.recommendation} (Conf: ${res.confidence}%)`, "success");
+                executeTrade(res.recommendation.toLowerCase());
+            }
+        }
+    } catch (e) { aiText.innerText = "VIP X: Neural link lost."; }
+}
+
+async function runOmegaCore() {
+    if (!isConnected || !document.getElementById('omegaToggle').checked || isTradeInProgress || isCooldownActive) return;
+    if (omegaTradeCount >= OMEGA_LIMIT) {
+        document.getElementById('omega-output').innerText = "DAILY LIMIT REACHED";
+        return;
+    }
+    document.getElementById('omega-output').innerText = "OMEGA: CALCULATING PRECISION...";
+    const context = `OMEGA PROTOCOL. History: ${JSON.stringify(tickData)}. Target: ${selectedBarrier}. Need 95%+ prob. Mode: ${currentMode}. JSON: {"entry": "over"|"under"|"hold", "prob": 0-100}`;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: context }] }], generationConfig: { responseMimeType: "application/json" } })
+        });
+        const data = await response.json();
+        const res = JSON.parse(data.candidates[0].content.parts[0].text);
+        
+        if(res.prob >= 95 && res.entry !== "hold") {
+            omegaTradeCount++;
+            document.getElementById('omega-trades-left').innerText = `Trade Limit: ${omegaTradeCount} / 2`;
+            executeTrade(res.entry.toLowerCase(), true);
+        } else {
+            document.getElementById('omega-output').innerText = `PRECISION SCAN: ${res.prob}%`;
+        }
+    } catch (e) { document.getElementById('omega-output').innerText = "LINK ERROR"; }
+}
+
+function disconnect() {
+    if(ws) { try { ws.close(); } catch(e) {} }
+    ws = null; isConnected = false;
+    document.getElementById('mainBody').classList.remove('connected');
+    document.getElementById('connect').textContent = 'JOIN';
+    document.getElementById('dot').style.background = '#475569';
+    document.getElementById('statusTxt').textContent = 'OFFLINE';
+    document.getElementById('balanceContainer').style.display = 'none';
+}
+
+function safeSend(data) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); }
+
+document.getElementById('connect').onclick = () => {
+    if (isConnected) { disconnect(); return; }
+    const token = document.getElementById('token').value;
+    if(!token) return addLog("Token required", "error");
+    
+    document.getElementById('connect').textContent = '...';
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => { safeSend({ authorize: token.trim() }); };
+    
+    ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        if(data.error) { addLog(data.error.message, 'error'); disconnect(); return; }
+        
+        switch(data.msg_type) {
+            case 'authorize':
+                isConnected = true;
+                document.getElementById('mainBody').classList.add('connected');
+                document.getElementById('connect').textContent = 'DISCONNECT';
+                document.getElementById('dot').style.background = 'var(--success)';
+                document.getElementById('statusTxt').textContent = 'ONLINE';
+                document.getElementById('balanceContainer').style.display = 'block';
+                safeSend({ balance: 1, subscribe: 1 });
+                safeSend({ ticks: document.getElementById('market').value, subscribe: 1 });
+                safeSend({ proposal_open_contract: 1, subscribe: 1 });
+                addLog("Authorization Successful", "success");
+                break;
+            case 'balance':
+                document.getElementById('walletBalance').textContent = data.balance.balance.toLocaleString();
+                break;
+            case 'tick':
+                document.querySelectorAll('.freq-card').forEach(c => {
+                    c.classList.remove('last-tick');
+                    c.classList.remove('winning-digit');
+                });
+
+                const digitStr = data.tick.quote.toString();
+                const digit = parseInt(digitStr.charAt(digitStr.length - 1));
+                
+                rawPrices.push(data.tick.quote); 
+                tickData.push(digit); 
+                
+                digitCounts[digit]++;
+                if(tickData.length > 100) {
+                    const removedDigit = tickData.shift();
+                    digitCounts[removedDigit]--;
+                }
+                
+                const card = document.getElementById(`freq-card-${digit}`);
+                if(card) card.classList.add('last-tick');
+                
+                const totalTicks = tickData.length || 1;
+                for(let i=0; i<=9; i++) {
+                    const pct = Math.round((digitCounts[i] / totalTicks) * 100);
+                    const label = document.getElementById(`freq-val-${i}`);
+                    if(label) label.textContent = pct + '%';
+                    
+                    const freqCard = document.getElementById(`freq-card-${i}`);
+                    if(freqCard) {
+                        const intensity = Math.min(0.6, digitCounts[i] / (totalTicks / 5)); 
+                        freqCard.style.background = `rgba(139, 92, 246, ${intensity})`;
+                    }
+                }
+
+                const prog = Math.min(100, (tickData.length / OMEGA_TICK_REQ) * 100);
+                document.getElementById('omega-progress-bar').style.width = prog + '%';
+                document.getElementById('omega-progress-label').innerText = `Initialization: ${tickData.length} / 50`;
+                
+                if(tickData.length >= 50) {
+                    document.getElementById('omega-card').classList.add('active-omega');
+                    if(tickCounter % 10 === 0) runOmegaCore();
+                }
+
+                updateVitals();
+                runGPS();
+
+                tickCounter++;
+                if(tickCounter % 15 === 0) {
+                    runBarrierAI();
+                    runAI(); 
+                }
+                break;
+                
+            case 'proposal_open_contract':
+                const poc = data.proposal_open_contract;
+                if (poc && poc.is_sold) {
+                    isTradeInProgress = false;
+                    const winDigit = parseInt(poc.exit_tick.toString().slice(-1));
+                    const winCard = document.getElementById(`freq-card-${winDigit}`);
+                    if(winCard) winCard.classList.add('winning-digit');
+                    
+                    const div = document.createElement('div');
+                    div.style.padding = '8px'; div.style.borderBottom = '1px solid var(--border)';
+                    const color = poc.profit > 0 ? 'var(--success)' : 'var(--error)';
+                    div.innerHTML = `<div style="display:flex; justify-content:space-between;">
+                        <span>${poc.contract_type} @ ${poc.barrier}</span>
+                        <span style="color:${color}; font-weight:800;">${poc.profit > 0 ? '+' : ''}${poc.profit} USD</span>
+                    </div>`;
+                    document.getElementById('transactions').prepend(div);
+                }
+                break;
+        }
+    };
+};
+
+function executeTrade(direction, isOmega = false) {
+    if(!ws || ws.readyState !== WebSocket.OPEN || isCooldownActive || isTradeInProgress) return;
+    if(direction === 'over' && selectedBarrier >= 9) return;
+    if(direction === 'under' && selectedBarrier <= 0) return;
+
+    isTradeInProgress = true;
+    const stake = parseFloat(document.getElementById('stake').value);
+    const duration = parseInt(document.getElementById('duration').value);
+    const symbol = document.getElementById('market').value;
+
+    safeSend({
+        buy: 1, 
+        price: stake,
+        parameters: { 
+            amount: stake, 
+            basis: 'stake', 
+            contract_type: direction === 'over' ? 'DIGITOVER' : 'DIGITUNDER', 
+            currency: 'USD', 
+            duration: duration, 
+            duration_unit: 't', 
+            symbol: symbol, 
+            barrier: selectedBarrier.toString() 
+        }
+    });
+    
+    addLog(`${isOmega ? 'OMEGA' : 'AI'} SENT: ${direction.toUpperCase()} @ Barrier ${selectedBarrier}`, isOmega ? 'success' : 'info');
+}
+
+document.getElementById('aiMode').addEventListener('change', (e) => {
+    if (e.target.value === 'adaptive') {
+        document.getElementById('active-ai-mode-label').innerText = "Adaptive";
+        addLog("Strategy: Switched to FULLY ADAPTIVE", "success");
+    } else {
+        const labels = { balanced: "Neural", conservative: "Safe", aggressive: "Aggro" };
+        currentMode = e.target.value;
+        document.getElementById('active-ai-mode-label').innerText = labels[currentMode];
+        addLog(`Strategy manually set to: ${currentMode.toUpperCase()}`, "info");
+    }
+});
+
+document.getElementById('buyOver').onclick = () => executeTrade('over');
+document.getElementById('buyUnder').onclick = () => executeTrade('under');
+document.getElementById('aiBtn').onclick = () => { runBarrierAI(true); runAI(); };
+</script>
+</body>
+</html>
